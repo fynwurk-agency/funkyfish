@@ -14,6 +14,10 @@ export default async function handler(req, res) {
 
     const SHOP_DOMAIN = "funkyfish-kairos.myshopify.com";
     const ADMIN_API_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
+    console.log("Shopify admin;", process.env.SHOPIFY_ADMIN_TOKEN);
+    console.log("TOKEN:", ADMIN_API_TOKEN);
+    console.log("TOKEN:", ADMIN_API_TOKEN);
+
 
     const response = await fetch(
       `https://${SHOP_DOMAIN}/admin/api/2024-01/customers/${customerId}/metafields.json`,
