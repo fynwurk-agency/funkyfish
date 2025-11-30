@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 export default async function handler(req, res) {
   // --- CORS FIX ---
   res.setHeader("Access-Control-Allow-Origin", "https://thefunkyfish.in");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
@@ -11,12 +11,13 @@ export default async function handler(req, res) {
   }
   // ----------------
 
-  if (req.method !== "POST") {
+  // ALLOW ONLY GET
+  if (req.method !== "GET") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   try {
-    const { customerId } = req.body;
+    const customerId = req.query.customerId; // from URL query
 
     if (!customerId) {
       return res.status(400).json({ error: "Missing customerId" });
