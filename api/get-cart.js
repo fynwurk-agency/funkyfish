@@ -1,5 +1,4 @@
-import fetch from "node-fetch";
-
+// pages/api/get-cart.js
 export default async function handler(req, res) {
   // --- CORS FIX ---
   res.setHeader("Access-Control-Allow-Origin", "https://thefunkyfish.in");
@@ -37,10 +36,15 @@ export default async function handler(req, res) {
       }
     );
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).json({ error: errorText });
+    }
+
     const data = await response.json();
 
     const savedCartField = data.metafields?.find(
-      f => f.namespace === "custom" && f.key === "saved_cart"
+      (f) => f.namespace === "custom" && f.key === "saved_cart"
     );
 
     const savedCartItems = savedCartField
