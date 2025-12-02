@@ -1,6 +1,20 @@
+// api/save-cart.js - UPDATED WITH PROPER CORS
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
+  // --- CORS HEADERS FIRST ---
+  res.setHeader("Access-Control-Allow-Origin", "https://thefunkyfish.in");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  
+  // Handle OPTIONS/preflight requests
+  if (req.method === "OPTIONS") {
+    console.log("Handling OPTIONS preflight");
+    return res.status(200).end();
+  }
+  // -------------------------
+  
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
@@ -14,10 +28,6 @@ export default async function handler(req, res) {
 
     const SHOP_DOMAIN = "funkyfish-kairos.myshopify.com";
     const ADMIN_API_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
-    console.log("Shopify admin;", process.env.SHOPIFY_ADMIN_TOKEN);
-    console.log("TOKEN:", ADMIN_API_TOKEN);
-    console.log("TOKEN:", ADMIN_API_TOKEN);
-
 
     const response = await fetch(
       `https://${SHOP_DOMAIN}/admin/api/2024-01/customers/${customerId}/metafields.json`,
