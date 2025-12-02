@@ -1,14 +1,15 @@
-// pages/api/get-cart.js
+// /api/get-cart.js
 export default async function handler(req, res) {
-  // --- CORS FIX ---
+  // Set CORS headers for all responses
   res.setHeader("Access-Control-Allow-Origin", "https://thefunkyfish.in");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT, DELETE");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
 
+  // Handle preflight requests
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
-  // ----------------
 
   // ALLOW ONLY GET
   if (req.method !== "GET") {
@@ -16,7 +17,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const customerId = req.query.customerId; // from URL query
+    const customerId = req.query.customerId;
 
     if (!customerId) {
       return res.status(400).json({ error: "Missing customerId" });
