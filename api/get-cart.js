@@ -1,65 +1,43 @@
-// /api/get-cart.js
+// /api/get-cart.js - SIMPLE VERSION
 export default async function handler(req, res) {
-  // Set CORS headers FIRST
-  res.setHeader('Access-Control-Allow-Origin', 'https://thefunkyfish.in');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  console.log('GET CART CALLED:', req.method, req.query);
   
-  // Handle OPTIONS/preflight requests
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', 'https://thefunkyfish.in');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle OPTIONS/preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
-  // Only allow GET method
+  
+  // Only allow GET
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
-
+  
   try {
     const customerId = req.query.customerId;
-
+    
     if (!customerId) {
       return res.status(400).json({ error: 'Missing customerId' });
     }
-
-    const SHOP_DOMAIN = 'funkyfish-kairos.myshopify.com';
-    const ADMIN_API_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
-
-    console.log('Fetching cart for customer:', customerId);
-
-    const response = await fetch(
-      `https://${SHOP_DOMAIN}/admin/api/2024-01/customers/${customerId}/metafields.json`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Shopify-Access-Token': ADMIN_API_TOKEN
-        }
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Shopify API error:', errorText);
-      return res.status(response.status).json({ error: errorText });
-    }
-
-    const data = await response.json();
-    console.log('Shopify response:', data);
-
-    const savedCartField = data.metafields?.find(
-      (f) => f.namespace === 'custom' && f.key === 'saved_cart'
-    );
-
-    const savedCartItems = savedCartField
-      ? JSON.parse(savedCartField.value)
-      : [];
-
-    return res.status(200).json({ savedCartItems });
-
-  } catch (err) {
-    console.error('Server error:', err);
-    return res.status(500).json({ error: err.message });
+    
+    // Return dummy data for testing
+    return res.status(200).json({
+      success: true,
+      message: 'GET endpoint works!',
+      customerId: customerId,
+      savedCartItems: [
+        { id: 'test-1', name: 'Test Product', quantity: 1 }
+      ],
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error:', error);
+    return res.status(500).json({ error: error.message });
   }
 }
