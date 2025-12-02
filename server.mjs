@@ -1,4 +1,4 @@
-// server.mjs
+// server.mjs Code for FunkyFish API
 import express from "express";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
@@ -9,6 +9,7 @@ const app = express();
 app.use(express.json());
 
 // --- CORS FIX ---
+
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "https://thefunkyfish.in");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
