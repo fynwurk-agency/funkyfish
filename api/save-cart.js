@@ -3,10 +3,7 @@ import fetch from "node-fetch";
 
 export default async function handler(req, res) {
   // --- CORS HEADERS FIRST ---
-  res.setHeader("Access-Control-Allow-Origin", "https://thefunkyfish.in");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+ 
   
   // Handle OPTIONS/preflight requests
   if (req.method === "OPTIONS") {

@@ -13,6 +13,12 @@ export default async function handler(req, res) {
     console.log('Handling OPTIONS preflight for GET');
     return res.status(200).end();
   }
+
+  // Allow HEAD request (Shopify always sends this)
+  if (req.method === 'HEAD') {
+    return res.status(200).end();
+  }
+
   // -------------------------
   
   if (req.method !== 'GET') {
