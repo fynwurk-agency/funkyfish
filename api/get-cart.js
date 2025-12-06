@@ -1,31 +1,40 @@
 import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
-  // --- CORS ---
   const ALLOWED_ORIGIN = 'https://thefunkyfish.in';
+
+  // --- CORS headers ---
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-  // --- OPTIONS/preflight ---
+  // --- Preflight OPTIONS ---
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // --- HEAD ---
-  if (req.method === 'HEAD') {
-    return res.status(200).end();
-  }
-
-  // --- GET ---
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', ['GET', 'HEAD', 'OPTIONS']);
+  // --- Only allow GET/POST ---
+  if (!['GET', 'POST'].includes(req.method)) {
+    res.setHeader('Allow', ['GET', 'POST', 'OPTIONS']);
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
-    const customerId = req.query.customerId;
+    // Support GET query or POST JSON body
+    let customerId;
+    if (req.method === 'GET') {
+      customerId = req.query.customerId;
+    } else if (req.method === 'POST') {
+      const body = await new Promise((resolve, reject) => {
+        let data = '';
+        req.on('data', chunk => (data += chunk));
+        req.on('end', () => resolve(JSON.parse(data)));
+        req.on('error', reject);
+      });
+      customerId = body.customerId;
+    }
+
     if (!customerId) {
       return res.status(400).json({ error: 'Missing customerId' });
     }
@@ -50,15 +59,14 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-
     const savedCartField = data.metafields?.find(
       (f) => f.namespace === 'custom' && f.key === 'saved_cart'
     );
 
     const savedCartItems = savedCartField ? JSON.parse(savedCartField.value) : [];
-
     return res.status(200).json({ savedCartItems });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: err.message });
   }
 }
