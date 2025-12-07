@@ -1,69 +1,66 @@
 import fetch from "node-fetch";
 import nodemailer from "nodemailer";
 
-const SHOP = process.env.SHOPIFY_STORE_DOMAIN;   // you already use this
-const TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;   // already exists
+const SHOP = "funkyfish-kairos.myshopify.com";
+const TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
 
-// SMTP email sender
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,   // add this in Vercel
-  port: 587,
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
   secure: false,
   auth: {
-    user: process.env.SMTP_USER,  // add in Vercel
-    pass: process.env.SMTP_PASS   // add in Vercel
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
   }
 });
 
 export default async function handler(req, res) {
   try {
-    // STEP 1: Get all customers + metafields
-    const response = await fetch(
-      `https://${SHOP}/admin/api/2025-10/customers.json?fields=id,email`,
-      {
-        headers: {
-          "X-Shopify-Access-Token": TOKEN,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+    // 1) Get basic customer list
+    const customersRes = await fetch(`https://${SHOP}/admin/api/2025-01/customers.json?fields=id,email`, {
+      headers: { "X-Shopify-Access-Token": TOKEN }
+    });
 
-    const { customers } = await response.json();
-    const now = new Date();
+    const { customers } = await customersRes.json();
 
     for (let customer of customers) {
-      // STEP 2: Fetch metafields of the customer
+
+      // 2) Fetch metafields for each customer
       const metafieldsRes = await fetch(
-        `https://${SHOP}/admin/api/2025-10/customers/${customer.id}/metafields.json`,
-        {
-          headers: {
-            "X-Shopify-Access-Token": TOKEN,
-            "Content-Type": "application/json"
-          }
-        }
+        `https://${SHOP}/admin/api/2025-01/customers/${customer.id}/metafields.json`,
+        { headers: { "X-Shopify-Access-Token": TOKEN } }
       );
 
-      const metafields = (await metafieldsRes.json()).metafields;
+      const metafieldsData = await metafieldsRes.json();
+      const metafields = metafieldsData.metafields || [];
 
-      const savedCartMField = metafields.find(
+      // 3) Find saved_cart metafield
+      const mf = metafields.find(
         m => m.namespace === "custom" && m.key === "saved_cart"
       );
 
-      if (!savedCartMField) continue; // No saved cart → skip
+      if (!mf) continue;
 
-      const cart = JSON.parse(savedCartMField.value);
+      const cart = JSON.parse(mf.value);
+
+      // Skip if no items
+      if (!cart.savedCartItems || cart.savedCartItems.length === 0) continue;
+
+      // Check last update & emailed flag
       const lastUpdate = new Date(cart.updatedAt);
+      const now = new Date();
 
-      // Already emailed OR time < 1 hour
-      if (cart.emailed || (now - lastUpdate) / 36e5 < 1) continue;
+      const hoursPassed = (now - lastUpdate) / 36e5;
 
-      // STEP 3: Send restore email
+      if (cart.emailed || hoursPassed < 1) continue;
+
+      // --- Send Email ---
       const restoreLink = `https://thefunkyfish.in/restore-cart?customerId=${customer.id}`;
+
       const html = `
         <h3>You left items in your cart:</h3>
         ${cart.savedCartItems.map(i => `<div>${i.name} × ${i.quantity}</div>`).join("")}
-        <br/>
-        <a href="${restoreLink}">Click here to restore your cart</a>
+        <p><a href="${restoreLink}">Restore your cart</a></p>
       `;
 
       await transporter.sendMail({
@@ -73,34 +70,33 @@ export default async function handler(req, res) {
         html
       });
 
-      console.log(`Email sent → ${customer.email}`);
-
-      // STEP 4: UPDATE metafield (not create new)
+      // Mark as emailed
       cart.emailed = true;
 
-      await fetch(
-        `https://${SHOP}/admin/api/2025-10/metafields/${savedCartMField.id}.json`,
-        {
-          method: "PUT",
-          headers: {
-            "X-Shopify-Access-Token": TOKEN,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            metafield: {
-              id: savedCartMField.id,
-              value: JSON.stringify(cart),
-              type: "json"
-            }
-          })
-        }
-      );
+      await fetch(`https://${SHOP}/admin/api/2025-01/customers/${customer.id}/metafields/${mf.id}.json`, {
+        method: "PUT",
+        headers: {
+          "X-Shopify-Access-Token": TOKEN,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          metafield: {
+            id: mf.id,
+            namespace: "custom",
+            key: "saved_cart",
+            value: JSON.stringify(cart),
+            type: "json"
+          }
+        })
+      });
+
+      console.log(`Email sent to ${customer.email}`);
     }
 
-    res.status(200).json({ status: "Completed abandoned cart email job" });
+    res.status(200).json({ status: "Abandoned cart emails processed successfully" });
 
   } catch (err) {
-    console.error("ERROR:", err);
+    console.error(err);
     res.status(500).json({ error: "Send abandoned emails failed" });
   }
 }
