@@ -24,6 +24,12 @@ export async function getShopifyAccessToken() {
   const shop =
     process.env.SHOPIFY_SHOP;
 
+    console.log("Shopify credentials check:", {
+  clientIdExists: !!clientId,
+  clientSecretExists: !!clientSecret,
+  shopExists: !!shop
+});
+
   if (
     !clientId ||
     !clientSecret ||
