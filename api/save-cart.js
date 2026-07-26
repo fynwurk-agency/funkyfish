@@ -1,21 +1,38 @@
 // api/save-cart.js
 // Save customer cart to Shopify customer metafield
-// Uses Shopify Admin API access token from Vercel environment variables
+// Uses Shopify Client Credentials Grant for Admin API access
 
 import fetch from "node-fetch";
+
+import {
+  getShopifyAccessToken
+} from "./shopify-token.js";
+
 
 // =====================================================
 // Shopify Store
 // =====================================================
 
-const SHOP_DOMAIN = "funkyfish-kairos.myshopify.com";
+const SHOP_DOMAIN =
+  "funkyfish-kairos.myshopify.com";
+
+
+// =====================================================
+// Shopify API Version
+// =====================================================
+
+const SHOPIFY_API_VERSION =
+  "2026-07";
 
 
 // =====================================================
 // API Handler
 // =====================================================
 
-export default async function handler(req, res) {
+export default async function handler(
+  req,
+  res
+) {
 
   // ===================================================
   // CORS
@@ -46,7 +63,9 @@ export default async function handler(req, res) {
   // Handle OPTIONS / Preflight
   // ===================================================
 
-  if (req.method === "OPTIONS") {
+  if (
+    req.method === "OPTIONS"
+  ) {
 
     console.log(
       "Handling OPTIONS preflight"
@@ -62,13 +81,16 @@ export default async function handler(req, res) {
   // Only allow POST
   // ===================================================
 
-  if (req.method !== "POST") {
+  if (
+    req.method !== "POST"
+  ) {
 
     return res
       .status(405)
       .json({
         success: false,
-        error: "Method Not Allowed"
+        error:
+          "Method Not Allowed"
       });
   }
 
@@ -76,21 +98,27 @@ export default async function handler(req, res) {
   try {
 
     // =================================================
-    // Get Shopify Admin API Token
+    // Get Shopify Admin API Access Token
     // =================================================
 
+    console.log(
+      "Getting Shopify Admin API access token..."
+    );
+
     const ADMIN_API_TOKEN =
-      process.env.SHOPIFY_ADMIN_TOKEN;
+      await getShopifyAccessToken();
 
 
     // =================================================
     // Check token
     // =================================================
 
-    if (!ADMIN_API_TOKEN) {
+    if (
+      !ADMIN_API_TOKEN
+    ) {
 
       console.error(
-        "SHOPIFY_ADMIN_TOKEN is missing"
+        "Shopify Admin API token was not returned"
       );
 
       return res
@@ -98,7 +126,7 @@ export default async function handler(req, res) {
         .json({
           success: false,
           error:
-            "SHOPIFY_ADMIN_TOKEN is not configured"
+            "Shopify Admin API token was not returned"
         });
     }
 
@@ -110,14 +138,17 @@ export default async function handler(req, res) {
     const {
       customerId,
       cartItems
-    } = req.body || {};
+    } =
+      req.body || {};
 
 
     // =================================================
-    // Validate request
+    // Validate customer ID
     // =================================================
 
-    if (!customerId) {
+    if (
+      !customerId
+    ) {
 
       return res
         .status(400)
@@ -129,8 +160,14 @@ export default async function handler(req, res) {
     }
 
 
+    // =================================================
+    // Validate cart items
+    // =================================================
+
     if (
-      !Array.isArray(cartItems)
+      !Array.isArray(
+        cartItems
+      )
     ) {
 
       return res
@@ -161,6 +198,11 @@ export default async function handler(req, res) {
     );
 
     console.log(
+      "API Version:",
+      SHOPIFY_API_VERSION
+    );
+
+    console.log(
       "Customer ID:",
       customerId
     );
@@ -182,49 +224,66 @@ export default async function handler(req, res) {
 
 
     // =================================================
-    // Shopify Admin API
+    // Shopify Admin API URL
     // =================================================
 
-    const response = await fetch(
-      `https://${SHOP_DOMAIN}/admin/api/2026-04/customers/${customerId}/metafields.json`,
-      {
-        method: "POST",
+    const shopifyUrl =
+      `https://${SHOP_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/customers/${customerId}/metafields.json`;
 
-        headers: {
-          "Content-Type":
-            "application/json",
 
-          "Accept":
-            "application/json",
-
-          "X-Shopify-Access-Token":
-            ADMIN_API_TOKEN
-        },
-
-        body: JSON.stringify({
-
-          metafield: {
-
-            namespace:
-              "custom",
-
-            key:
-              "saved_cart",
-
-            value:
-              JSON.stringify(
-                cartItems
-              ),
-
-            type:
-              "json"
-
-          }
-
-        })
-
-      }
+    console.log(
+      "Shopify API URL:",
+      shopifyUrl
     );
+
+
+    // =================================================
+    // Shopify Admin API Request
+    // =================================================
+
+    const response =
+      await fetch(
+        shopifyUrl,
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            "Accept":
+              "application/json",
+
+            "X-Shopify-Access-Token":
+              ADMIN_API_TOKEN
+          },
+
+          body:
+            JSON.stringify({
+
+              metafield: {
+
+                namespace:
+                  "custom",
+
+                key:
+                  "saved_cart",
+
+                value:
+                  JSON.stringify(
+                    cartItems
+                  ),
+
+                type:
+                  "json"
+
+              }
+
+            })
+
+        }
+      );
 
 
     // =================================================
@@ -273,17 +332,22 @@ export default async function handler(req, res) {
     // Shopify API Error
     // =================================================
 
-    if (!response.ok) {
+    if (
+      !response.ok
+    ) {
 
       console.error(
         "Shopify API request failed"
       );
 
       return res
-        .status(response.status)
+        .status(
+          response.status
+        )
         .json({
 
-          success: false,
+          success:
+            false,
 
           shopifyStatus:
             response.status,
@@ -309,7 +373,8 @@ export default async function handler(req, res) {
       .status(200)
       .json({
 
-        success: true,
+        success:
+          true,
 
         shopifyStatus:
           response.status,
@@ -320,7 +385,9 @@ export default async function handler(req, res) {
       });
 
 
-  } catch (err) {
+  } catch (
+    err
+  ) {
 
     // =================================================
     // Server Error
@@ -344,7 +411,8 @@ export default async function handler(req, res) {
       .status(500)
       .json({
 
-        success: false,
+        success:
+          false,
 
         error:
           err.message
