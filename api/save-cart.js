@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     const ADMIN_API_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
 
     const response = await fetch(
-      `https://${SHOP_DOMAIN}/admin/api/2024-01/customers/${customerId}/metafields.json`,
+      `https://${SHOP_DOMAIN}/admin/api/2025-10/customers/${customerId}/metafields.json`,
       {
         method: "POST",
         headers: {
