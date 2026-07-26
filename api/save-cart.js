@@ -1,32 +1,25 @@
-// api/save-cart.js - UPDATED WITH PROPER CORS
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  // --- CORS HEADERS FIRST ---
- 
-  
-  // Handle OPTIONS/preflight requests
-  if (req.method === "OPTIONS") {
-    console.log("Handling OPTIONS preflight");
-    return res.status(200).end();
-  }
-  // -------------------------
-  
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return res.status(405).json({
+      error: "Method Not Allowed"
+    });
   }
 
   try {
     const { customerId, cartItems } = req.body;
 
-    if (!customerId || !cartItems) {
-      return res.status(400).json({ error: "Missing customerId or cartItems" });
-    }
-
     const SHOP_DOMAIN = "funkyfish-kairos.myshopify.com";
     const ADMIN_API_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
 
-    const response = await fetch(
+    console.log("=== SAVE CART DEBUG ===");
+    console.log("Shop:", SHOP_DOMAIN);
+    console.log("Customer ID:", customerId);
+    console.log("Token exists:", !!ADMIN_API_TOKEN);
+    console.log("Token length:", ADMIN_API_TOKEN?.length);
+
+    const shopifyResponse = await fetch(
       `https://${SHOP_DOMAIN}/admin/api/2026-04/customers/${customerId}/metafields.json`,
       {
         method: "POST",
@@ -45,10 +38,22 @@ export default async function handler(req, res) {
       }
     );
 
-    const data = await response.json();
-    return res.status(200).json(data);
+    const responseText = await shopifyResponse.text();
 
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.log("Shopify HTTP Status:", shopifyResponse.status);
+    console.log("Shopify Response:", responseText);
+
+    return res.status(200).json({
+      success: shopifyResponse.ok,
+      shopifyStatus: shopifyResponse.status,
+      shopifyResponse: responseText
+    });
+
+  } catch (error) {
+    console.error("ERROR:", error);
+
+    return res.status(500).json({
+      error: error.message
+    });
   }
 }
