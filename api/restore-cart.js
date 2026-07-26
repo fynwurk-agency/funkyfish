@@ -250,23 +250,10 @@ export default async function handler(
     );
 
 
-    return res
-      .status(200)
-      .json({
-
-        success:
-          true,
-
-        customerId:
-          customerId,
-
-        savedCartItems:
-          data.savedCartItems,
-
-        cartUrl:
-          cartUrl
-
-      });
+   return res.redirect(
+  302,
+  cartUrl
+);
 
 
   } catch (
