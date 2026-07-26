@@ -17,43 +17,20 @@ let tokenExpiresAt = 0;
 // =====================================================
 
 async function getShopifyAccessToken() {
-
-  // Reuse cached token if it is still valid
-  if (
-    cachedAccessToken &&
-    Date.now() < tokenExpiresAt
-  ) {
-    console.log("Using cached Shopify access token");
-
-    return cachedAccessToken;
-  }
-
   const SHOP_DOMAIN = "funkyfish-kairos.myshopify.com";
 
-  const CLIENT_ID =
-    process.env.SHOPIFY_CLIENT_ID;
+  const CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
+  const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 
-  const CLIENT_SECRET =
-    process.env.SHOPIFY_CLIENT_SECRET;
-
-
-  // Check environment variables
   if (!CLIENT_ID) {
-    throw new Error(
-      "SHOPIFY_CLIENT_ID is missing"
-    );
+    throw new Error("SHOPIFY_CLIENT_ID is missing");
   }
 
   if (!CLIENT_SECRET) {
-    throw new Error(
-      "SHOPIFY_CLIENT_SECRET is missing"
-    );
+    throw new Error("SHOPIFY_CLIENT_SECRET is missing");
   }
 
-
-  console.log(
-    "Requesting new Shopify Admin API access token..."
-  );
+  console.log("Requesting Shopify access token...");
 
   const tokenResponse = await fetch(
     `https://${SHOP_DOMAIN}/admin/oauth/access_token`,
@@ -61,7 +38,8 @@ async function getShopifyAccessToken() {
       method: "POST",
 
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Accept": "application/json"
       },
 
       body: JSON.stringify({
@@ -72,66 +50,52 @@ async function getShopifyAccessToken() {
     }
   );
 
-
-  const tokenData =
-    await tokenResponse.json();
-
+  // IMPORTANT:
+  // Read as text first so we can see the actual Shopify response
+  const responseText = await tokenResponse.text();
 
   console.log(
-    "Shopify token response status:",
+    "Token endpoint HTTP status:",
     tokenResponse.status
   );
 
+  console.log(
+    "Token endpoint content-type:",
+    tokenResponse.headers.get("content-type")
+  );
+
+  console.log(
+    "Token endpoint response:",
+    responseText.substring(0, 1000)
+  );
 
   if (!tokenResponse.ok) {
-
-    console.error(
-      "Shopify token generation failed:",
-      tokenData
-    );
-
     throw new Error(
-      `Shopify token generation failed: ${JSON.stringify(tokenData)}`
+      `Shopify token request failed (${tokenResponse.status}): ${responseText.substring(0, 500)}`
     );
   }
 
+  let tokenData;
+
+  try {
+    tokenData = JSON.parse(responseText);
+  } catch (error) {
+    throw new Error(
+      `Shopify token endpoint did not return JSON. Response: ${responseText.substring(0, 500)}`
+    );
+  }
 
   if (!tokenData.access_token) {
-
     throw new Error(
-      "Shopify did not return an access token"
+      `Shopify did not return access_token: ${JSON.stringify(tokenData)}`
     );
   }
 
-
-  // Save token in memory
-  cachedAccessToken =
-    tokenData.access_token;
-
-
-  // Shopify token expiry
-  // Refresh 5 minutes before expiry
-  const expiresIn =
-    tokenData.expires_in || 86400;
-
-
-  tokenExpiresAt =
-    Date.now() +
-    ((expiresIn - 300) * 1000);
-
-
   console.log(
-    "New Shopify Admin API token generated successfully"
+    "Shopify access token generated successfully"
   );
 
-  console.log(
-    "Token expires in:",
-    expiresIn,
-    "seconds"
-  );
-
-
-  return cachedAccessToken;
+  return tokenData.access_token;
 }
 
 
