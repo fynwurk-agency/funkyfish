@@ -1,102 +1,14 @@
 // api/save-cart.js
 // Save customer cart to Shopify customer metafield
-// Uses Shopify Client Credentials authentication
+// Uses Shopify Admin API access token from Vercel environment variables
 
 import fetch from "node-fetch";
 
 // =====================================================
-// Shopify Access Token Cache
+// Shopify Store
 // =====================================================
 
-let cachedAccessToken = null;
-let tokenExpiresAt = 0;
-
-
-// =====================================================
-// Get Shopify Admin API Access Token
-// =====================================================
-
-async function getShopifyAccessToken() {
-  const SHOP_DOMAIN = "funkyfish-kairos.myshopify.com";
-
-  const CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
-  const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
-
-  if (!CLIENT_ID) {
-    throw new Error("SHOPIFY_CLIENT_ID is missing");
-  }
-
-  if (!CLIENT_SECRET) {
-    throw new Error("SHOPIFY_CLIENT_SECRET is missing");
-  }
-
-  console.log("Requesting Shopify access token...");
-
-  const tokenResponse = await fetch(
-    `https://${SHOP_DOMAIN}/admin/oauth/access_token`,
-    {
-      method: "POST",
-
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-
-      body: JSON.stringify({
-        grant_type: "client_credentials",
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET
-      })
-    }
-  );
-
-  // IMPORTANT:
-  // Read as text first so we can see the actual Shopify response
-  const responseText = await tokenResponse.text();
-
-  console.log(
-    "Token endpoint HTTP status:",
-    tokenResponse.status
-  );
-
-  console.log(
-    "Token endpoint content-type:",
-    tokenResponse.headers.get("content-type")
-  );
-
-  console.log(
-    "Token endpoint response:",
-    responseText.substring(0, 1000)
-  );
-
-  if (!tokenResponse.ok) {
-    throw new Error(
-      `Shopify token request failed (${tokenResponse.status}): ${responseText.substring(0, 500)}`
-    );
-  }
-
-  let tokenData;
-
-  try {
-    tokenData = JSON.parse(responseText);
-  } catch (error) {
-    throw new Error(
-      `Shopify token endpoint did not return JSON. Response: ${responseText.substring(0, 500)}`
-    );
-  }
-
-  if (!tokenData.access_token) {
-    throw new Error(
-      `Shopify did not return access_token: ${JSON.stringify(tokenData)}`
-    );
-  }
-
-  console.log(
-    "Shopify access token generated successfully"
-  );
-
-  return tokenData.access_token;
-}
+const SHOP_DOMAIN = "funkyfish-kairos.myshopify.com";
 
 
 // =====================================================
@@ -155,6 +67,7 @@ export default async function handler(req, res) {
     return res
       .status(405)
       .json({
+        success: false,
         error: "Method Not Allowed"
       });
   }
@@ -163,36 +76,76 @@ export default async function handler(req, res) {
   try {
 
     // =================================================
+    // Get Shopify Admin API Token
+    // =================================================
+
+    const ADMIN_API_TOKEN =
+      process.env.SHOPIFY_ADMIN_TOKEN;
+
+
+    // =================================================
+    // Check token
+    // =================================================
+
+    if (!ADMIN_API_TOKEN) {
+
+      console.error(
+        "SHOPIFY_ADMIN_TOKEN is missing"
+      );
+
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error:
+            "SHOPIFY_ADMIN_TOKEN is not configured"
+        });
+    }
+
+
+    // =================================================
     // Get request data
     // =================================================
 
     const {
       customerId,
       cartItems
-    } = req.body;
+    } = req.body || {};
+
+
+    // =================================================
+    // Validate request
+    // =================================================
+
+    if (!customerId) {
+
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error:
+            "Missing customerId"
+        });
+    }
 
 
     if (
-      !customerId ||
-      !cartItems
+      !Array.isArray(cartItems)
     ) {
 
       return res
         .status(400)
         .json({
+          success: false,
           error:
-            "Missing customerId or cartItems"
+            "cartItems must be an array"
         });
     }
 
 
     // =================================================
-    // Shopify Store
+    // Debug logs
     // =================================================
-
-    const SHOP_DOMAIN =
-      "funkyfish-kairos.myshopify.com";
-
 
     console.log(
       "================================="
@@ -217,17 +170,19 @@ export default async function handler(req, res) {
       cartItems.length
     );
 
+    console.log(
+      "Token exists:",
+      !!ADMIN_API_TOKEN
+    );
+
+    console.log(
+      "Token length:",
+      ADMIN_API_TOKEN.length
+    );
+
 
     // =================================================
-    // Get fresh Shopify access token
-    // =================================================
-
-    const ADMIN_API_TOKEN =
-      await getShopifyAccessToken();
-
-
-    // =================================================
-    // Save cart to Shopify customer metafield
+    // Shopify Admin API
     // =================================================
 
     const response = await fetch(
@@ -239,30 +194,41 @@ export default async function handler(req, res) {
           "Content-Type":
             "application/json",
 
+          "Accept":
+            "application/json",
+
           "X-Shopify-Access-Token":
             ADMIN_API_TOKEN
         },
 
         body: JSON.stringify({
-          metafield: {
-            namespace: "custom",
 
-            key: "saved_cart",
+          metafield: {
+
+            namespace:
+              "custom",
+
+            key:
+              "saved_cart",
 
             value:
               JSON.stringify(
                 cartItems
               ),
 
-            type: "json"
+            type:
+              "json"
+
           }
+
         })
+
       }
     );
 
 
     // =================================================
-    // Read Shopify response safely
+    // Read Shopify response
     // =================================================
 
     const responseText =
@@ -281,7 +247,7 @@ export default async function handler(req, res) {
 
 
     // =================================================
-    // Return Shopify result
+    // Parse Shopify response
     // =================================================
 
     let parsedResponse;
@@ -303,12 +269,47 @@ export default async function handler(req, res) {
     }
 
 
+    // =================================================
+    // Shopify API Error
+    // =================================================
+
+    if (!response.ok) {
+
+      console.error(
+        "Shopify API request failed"
+      );
+
+      return res
+        .status(response.status)
+        .json({
+
+          success: false,
+
+          shopifyStatus:
+            response.status,
+
+          shopifyResponse:
+            parsedResponse
+
+        });
+
+    }
+
+
+    // =================================================
+    // Success
+    // =================================================
+
+    console.log(
+      "Cart saved successfully"
+    );
+
+
     return res
-      .status(response.status)
+      .status(200)
       .json({
 
-        success:
-          response.ok,
+        success: true,
 
         shopifyStatus:
           response.status,
@@ -320,6 +321,10 @@ export default async function handler(req, res) {
 
 
   } catch (err) {
+
+    // =================================================
+    // Server Error
+    // =================================================
 
     console.error(
       "================================="
@@ -345,5 +350,7 @@ export default async function handler(req, res) {
           err.message
 
       });
+
   }
+
 }
